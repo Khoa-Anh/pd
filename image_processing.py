@@ -37,7 +37,7 @@ def stitching_image(imgs: list, matcher_type='affine', confident=0.2):
     final_imgs = list(img_handler.resize_to_final_resolution())
 
     # Sử dụng detector để tìm các đặc trưng trên ảnh medium
-    finder = FeatureDetector(detector='brisk', thresh=10, octaves=0)
+    finder = FeatureDetector(detector='brisk', thresh=20, octaves=0)
     features = [finder.detect_features(img) for img in medium_imgs]
 
     # Sử dụng matcher để so khớp các đặc trưng và lấy ma trận độ tin cậy

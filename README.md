@@ -4,6 +4,7 @@
 
 - API này cho phép các nhà phát triển tích hợp khả năng nhận diện các sản phẩm của Listerine (Johnson & Johnson) và các sản phẩm đối thủ.
 - API cho phép ghép nhiều ảnh thành một và thực hiện nhận diện các đối tượng trong ảnh đã ghép, hỗ trợ nhiều ảnh đầu vào và cung cấp kết quả chi tiết về các đối tượng được nhận diện.
+- Lưu ý: sử dụng stitching==0.4.0
 
 # II. Danh sách sản phẩm nhận diện
 
@@ -164,3 +165,127 @@ curl -O http://**izmthxfxxc.ap-southeast-1.awsapprunner.com**/download
 - Lưu ý rằng cú pháp cụ thể của **`curl`** có thể thay đổi tùy thuộc vào hệ điều hành đang sử dụng. Đối với Windows, bạn có thể cần sử dụng  bằng cách cài đặt các công cụ như Git Bash hoặc WSL.
 
 ![Untitled](images/Untitled%205.png)
+
+## Hướng dẫn chạy chương trình trên local
+
+**Cài Virtualenv**
+
+```
+pip install virtualenv
+```
+
+**Tạo môi trường ảo**
+
+- Mở terminal và di chuyển đến thư mục dự án. Sau đó, sử dụng lệnh sau để tạo một môi trường ảo mới (thay `myenv` bằng tên muốn đặt cho môi trường ảo):
+
+```
+python -m venv myenv
+```
+
+**Kích hoạt môi trường ảo**
+
+- Trên Linux/macOS:
+
+```
+source myenv/bin/activate
+```
+
+- Trên Windows (PowerShell)
+
+```
+.\\myenv\\Scripts\\Activate.ps1
+```
+
+- Trên Windows (Command Prompt):
+
+```
+.\\myenv\\Scripts\\activate
+```
+
+- **Cài các thư viện trong** requirements.txt
+
+```
+pip install -r requirements.txt
+```
+
+- Chạy chương trình:
+
+```
+python app.py
+```
+
+**Thoát khỏi môi trường ảo**
+
+```
+deactivate
+```
+
+Lưu ý: chỉ dùng với thư viện stitching==0.4.0
+
+---
+
+## Giải thích thuật toán và công nghệ
+
+1. **Ghép ảnh (image stitching)** từ nhiều ảnh đầu vào.
+2. **Nhận diện đối tượng (object detection)** trên ảnh đã ghép hoặc ảnh đơn lẻ, sử dụng mô hình YOLO.
+
+Chúng ta sẽ đi qua từng thuật toán và quy trình trong chương trình:
+
+### 1. Ghép ảnh (Image Stitching)
+
+Đây là quá trình kết hợp nhiều ảnh lại với nhau để tạo ra một ảnh panorama. Chương trình sử dụng các thuật toán xử lý ảnh phổ biến để thực hiện việc này:
+
+### a. **Feature Detection (Tìm đặc trưng)**
+
+- Sử dụng thuật toán **BRISK** để phát hiện các điểm đặc trưng trong mỗi ảnh. Đây là các điểm có thể là góc cạnh, cạnh, hoặc các cấu trúc độc đáo trong ảnh.
+- Cụ thể, thuật toán tìm kiếm các đặc trưng qua nhiều mức tỷ lệ và tính toán các mô tả đặc trưng để sử dụng cho việc so sánh.
+
+### b. **Feature Matching (So khớp đặc trưng)**
+
+- Sau khi phát hiện các đặc trưng, chúng được ghép nối (matched) với nhau bằng cách sử dụng thuật toán **affine matcher**. Affine matcher tìm cách biến đổi ảnh sao cho các đặc trưng giống nhau giữa hai ảnh được khớp với nhau.
+- **Confidence matrix (Ma trận độ tin cậy)**: Chương trình sử dụng ma trận độ tin cậy để xác định cặp ảnh nào có khả năng được ghép tốt nhất dựa trên số lượng đặc trưng khớp chính xác.
+
+### c. **Subsetter (Lọc ảnh)**
+
+- **Subsetter** được sử dụng để lọc ra các ảnh không có độ tin cậy cao dựa trên ngưỡng tin cậy `confidence_threshold`. Chỉ những ảnh có mức độ khớp cao nhất mới được chọn để tiếp tục ghép.
+
+### d. **Camera Estimation (Ước lượng camera)**
+
+- Chương trình sử dụng **CameraEstimator** để ước tính các tham số camera, tức là xác định vị trí của camera khi chụp từng ảnh để có thể ghép chính xác.
+- Sau đó, **CameraAdjuster** được sử dụng để điều chỉnh các tham số camera, giúp các ảnh được ghép mượt mà hơn.
+- **WaveCorrector** được dùng để điều chỉnh hiệu ứng "wave", loại bỏ các biến dạng phi tuyến trong ảnh ghép.
+
+### e. **Warping and Cropping (Biến đổi và cắt ảnh)**
+
+- **Warper** dùng các tham số camera để "warp" (biến đổi hình học) các ảnh về kích thước và vị trí tương ứng với nhau.
+- Sau khi warp, ảnh sẽ được cắt bằng **Cropper** để bỏ đi các phần dư thừa và tạo ra một bức ảnh ghép gọn gàng.
+
+### f. **Seam Finding (Tìm đường nối)**
+
+- **SeamFinder** được sử dụng để tìm các đường nối giữa các ảnh, làm sao cho các khu vực giao nhau giữa hai ảnh trở nên mượt mà hơn và ít thấy rõ vết nối.
+
+### g. **Exposure Compensation (Bù độ phơi sáng)**
+
+- **ExposureErrorCompensator** điều chỉnh độ sáng giữa các ảnh khác nhau, giúp làm giảm sự khác biệt về độ sáng giữa các ảnh, đặc biệt khi các ảnh được chụp trong điều kiện ánh sáng khác nhau.
+
+### h. **Blending (Trộn ảnh)**
+
+- **Blender** được sử dụng để "blend" (trộn) các ảnh đã được warp và crop với nhau, tạo ra một ảnh panorama cuối cùng, mượt mà và ít vết nối.
+
+### 2. Nhận diện đối tượng (Object Detection)
+
+Sau khi ảnh được ghép hoặc khi chỉ có một ảnh duy nhất, chương trình sẽ thực hiện nhận diện đối tượng bằng cách sử dụng mô hình **YOLO**:
+
+### a. **YOLO (You Only Look Once)**
+
+- Đây là mô hình nhận diện đối tượng dựa trên học sâu (deep learning) rất nhanh và hiệu quả. YOLO phân chia ảnh thành nhiều lưới và dự đoán trực tiếp các bounding box (khung chứa) và nhãn (label) của các đối tượng trong ảnh.
+- Mô hình được tải từ tệp `best.pt`, là mô hình đã được huấn luyện trước đó. Khi nhận diện, nó sẽ trả về tọa độ của bounding box, lớp đối tượng (class), và độ tin cậy (confidence) của dự đoán.
+
+### b. **Mapping Class IDs to Names**
+
+- Kết quả nhận diện từ YOLO là các ID của lớp đối tượng. Chương trình sử dụng tệp `mapping.json` để ánh xạ từ các ID này sang tên đối tượng thực sự và thông tin SKU.
+
+### 3. Tổng hợp
+
+- **Stitching (Ghép ảnh)**: Chương trình sử dụng một chuỗi các bước gồm phát hiện đặc trưng, so khớp đặc trưng, ước lượng camera, warp ảnh, tìm đường nối, bù độ phơi sáng, và cuối cùng là trộn ảnh để tạo ra ảnh panorama.
+- **Object Detection (Nhận diện đối tượng)**: Mô hình YOLO được sử dụng để phát hiện đối tượng trên ảnh đã ghép hoặc ảnh đơn lẻ. Sau đó, các kết quả nhận diện được ánh xạ từ ID lớp sang tên thực và SKU để cung cấp thông tin chi tiết hơn.

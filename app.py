@@ -56,19 +56,22 @@ def predict():
                 cv2.imwrite(temp_path, img)
                 image_paths.append(temp_path)
 
-            # Gọi hàm ghép ảnh
-            matcher_type = 'affine'
-            confident = 0.2
-            stitching_result = stitching_image(image_paths, matcher_type, confident)
+            # Ghép ảnh lần lượt
+            stitched_image = cv2.imread(image_paths[0])
+            for i in range(1, len(image_paths)):
+                next_image = cv2.imread(image_paths[i])
+                
+                matcher_type = 'affine'
+                confident = 0.2
+                stitching_result = stitching_image([stitched_image, next_image], matcher_type, confident)
 
-            # Kiểm tra kết quả từ hàm stitching_image và ghi vào tệp "output_stitched.jpg"
-            if "error" in stitching_result:
-                return {"error": stitching_result["error"]}
-            else:
-                cv2.imwrite("output_stitched.jpg", stitching_result)
+                if "error" in stitching_result:
+                    return {"error": stitching_result["error"]}
+                else:
+                    stitched_image = stitching_result
 
-            # Đọc ảnh đã ghép để đưa vào nhận diện
-            stitched_image = cv2.imread("output_stitched.jpg")
+            # Lưu kết quả ghép ảnh vào tệp "output_stitched.jpg"
+            cv2.imwrite("output_stitched.jpg", stitched_image)
 
             width = stitched_image.shape[1]
             height = stitched_image.shape[0]
